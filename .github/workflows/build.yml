@@ -21,7 +21,7 @@ jobs:
           sed -i "s/String apiKey = '';/String apiKey = 'AQ.Ab8RN6KlCBReFr9m_ryowVQpqTmwHh6UoRRfkaGAjgLEbGz5mA';/" lib/helper/global.dart
           sed -i "s/String gptKey = '';/String gptKey = '';/" lib/helper/global.dart
           sed -i "s/String claudeKey = '';/String claudeKey = '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';/" lib/helper/global.dart
-          sed -i "s/String xiaoAiKey = '';/String xiaoAiKey = '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';/" lib/helper/global.dart
+          sed -i "s/String groqKey = '';/String groqKey = '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';/" lib/helper/global.dart
 
       - name: Get packages
         run: flutter pub get
