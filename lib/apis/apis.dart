@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
 
-import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:http/http.dart';
 import 'package:translator_plus/translator_plus.dart';
 
@@ -17,20 +16,22 @@ class APIs {
 
   static Future<String> getAnswerGemini(String question) async {
     try {
-      final model = GenerativeModel(
-        model: 'gemini-1.5-flash',
-        apiKey: apiKey,
+      final res = await post(
+        Uri.parse(
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey'),
+        headers: {'Content-Type': 'application/json'},
+        body: jsonEncode({
+          'contents': [
+            {
+              'parts': [
+                {'text': question}
+              ]
+            }
+          ]
+        }),
       );
-      final res = await model.generateContent(
-        [Content.text(question)],
-        safetySettings: [
-          SafetySetting(HarmCategory.dangerousContent, HarmBlockThreshold.none),
-          SafetySetting(HarmCategory.sexuallyExplicit, HarmBlockThreshold.none),
-          SafetySetting(HarmCategory.harassment, HarmBlockThreshold.none),
-          SafetySetting(HarmCategory.hateSpeech, HarmBlockThreshold.none),
-        ],
-      );
-      return res.text ?? 'Sem resposta';
+      final data = jsonDecode(res.body);
+      return data['candidates'][0]['content']['parts'][0]['text'];
     } catch (e) {
       log('getAnswerGeminiE: $e');
       return 'Erro Gemini: $e';
