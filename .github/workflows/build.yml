@@ -32,12 +32,10 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --release --verbose 2>&1 | tail -150
-      - name: Encontrar APK
-        run: find build -name "*.apk" 2>/dev/null || echo "Nenhum APK encontrado"
+        run: flutter build apk --release
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ai-assistant-apk
-          path: build/app/outputs/apk/release/app-release.apk
+          name: app-release
+          path: build/app/outputs/flutter-apk/app-release.apk
