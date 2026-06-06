@@ -14,6 +14,7 @@ class AIResponse {
 
 class APIs {
 
+  // ── GEMINI ──────────────────────────────────────
   static Future<String> getAnswerGemini(String question) async {
     try {
       final res = await post(
@@ -39,31 +40,7 @@ class APIs {
     }
   }
 
-  static Future<String> getAnswerDeepSeek(String question) async {
-    try {
-      final res = await post(
-        Uri.parse('https://api.deepseek.com/chat/completions'),
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': 'Bearer $deepseekKey',
-        },
-        body: jsonEncode({
-          'model': 'deepseek-chat',
-          'max_tokens': 2000,
-          'messages': [
-            {'role': 'user', 'content': question},
-          ],
-        }),
-      );
-      final data = jsonDecode(res.body);
-      if (data['choices'] == null) return 'Erro DeepSeek: ${res.body}';
-      return data['choices'][0]['message']['content'];
-    } catch (e) {
-      log('getAnswerDeepSeekE: $e');
-      return 'Erro DeepSeek: $e';
-    }
-  }
-
+  // ── GROQ LLAMA (código) ──────────────────────────
   static Future<String> getAnswerGroq(String question) async {
     try {
       final res = await post(
@@ -88,31 +65,91 @@ class APIs {
     }
   }
 
+  // ── GROQ MIXTRAL (textos longos) ─────────────────
+  static Future<String> getAnswerMixtral(String question) async {
+    try {
+      final res = await post(
+        Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $groqKey',
+        },
+        body: jsonEncode({
+          'model': 'mixtral-8x7b-32768',
+          'max_tokens': 2000,
+          'messages': [
+            {'role': 'user', 'content': question},
+          ],
+        }),
+      );
+      final data = jsonDecode(res.body);
+      return data['choices'][0]['message']['content'];
+    } catch (e) {
+      log('getAnswerMixtralE: $e');
+      return 'Erro Mixtral: $e';
+    }
+  }
+
+  // ── GROQ GEMMA (perguntas rápidas) ───────────────
+  static Future<String> getAnswerGemma(String question) async {
+    try {
+      final res = await post(
+        Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': 'Bearer $groqKey',
+        },
+        body: jsonEncode({
+          'model': 'gemma2-9b-it',
+          'max_tokens': 2000,
+          'messages': [
+            {'role': 'user', 'content': question},
+          ],
+        }),
+      );
+      final data = jsonDecode(res.body);
+      return data['choices'][0]['message']['content'];
+    } catch (e) {
+      log('getAnswerGemmaE: $e');
+      return 'Erro Gemma: $e';
+    }
+  }
+
+  // ── ROTEADOR ─────────────────────────────────────
   static Future<AIResponse> getAnswer(String question) async {
     try {
       final q = question.toLowerCase();
       final prompt = 'Responda sempre em português brasileiro. $question';
 
+      // Código → Llama (Groq)
       if (q.contains('código') || q.contains('code') ||
           q.contains('dart') || q.contains('python') ||
           q.contains('flutter') || q.contains('função') ||
           q.contains('erro') || q.contains('bug')) {
-        return AIResponse(text: await getAnswerGroq(prompt), provider: 'Groq');
+        return AIResponse(text: await getAnswerGroq(prompt), provider: 'Llama');
       }
 
+      // Textos longos → Mixtral (Groq)
       if (q.contains('explica') || q.contains('redija') ||
           q.contains('resumo') || q.contains('analise') ||
           q.contains('escreva') || q.contains('texto') ||
           q.length > 300) {
-        return AIResponse(text: await getAnswerDeepSeek(prompt), provider: 'DeepSeek');
+        return AIResponse(text: await getAnswerMixtral(prompt), provider: 'Mixtral');
       }
 
-      return AIResponse(text: await getAnswerGemini(prompt), provider: 'Gemini');
+      // Gemini → perguntas gerais (se falhar cai no Gemma)
+      final geminiRes = await getAnswerGemini(prompt);
+      if (geminiRes.startsWith('Erro')) {
+        return AIResponse(text: await getAnswerGemma(prompt), provider: 'Gemma');
+      }
+      return AIResponse(text: geminiRes, provider: 'Gemini');
+
     } catch (e) {
       return AIResponse(text: 'Erro geral: $e', provider: 'Erro');
     }
   }
 
+  // ── IMAGENS ──────────────────────────────────────
   static Future<List<String>> searchAiImages(String prompt) async {
     try {
       final res =
@@ -125,6 +162,7 @@ class APIs {
     }
   }
 
+  // ── TRADUÇÃO ─────────────────────────────────────
   static Future<String> googleTranslate({
     required String from,
     required String to,
