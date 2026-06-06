@@ -18,7 +18,7 @@ class APIs {
     try {
       final res = await post(
         Uri.parse(
-            'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey'),
+            'https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=$apiKey'),
         headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
           'contents': [
@@ -31,6 +31,8 @@ class APIs {
         }),
       );
       final data = jsonDecode(res.body);
+      log('Gemini response: ${res.body}');
+      if (data['candidates'] == null) return 'Erro Gemini: ${res.body}';
       return data['candidates'][0]['content']['parts'][0]['text'];
     } catch (e) {
       log('getAnswerGeminiE: $e');
@@ -56,6 +58,8 @@ class APIs {
         }),
       );
       final data = jsonDecode(res.body);
+      log('Claude response: ${res.body}');
+      if (data['content'] == null) return 'Erro Claude: ${res.body}';
       return data['content'][0]['text'];
     } catch (e) {
       log('getAnswerClaudeE: $e');
@@ -90,22 +94,23 @@ class APIs {
   static Future<AIResponse> getAnswer(String question) async {
     try {
       final q = question.toLowerCase();
+      final prompt = 'Responda sempre em português brasileiro. $question';
 
       if (q.contains('código') || q.contains('code') ||
           q.contains('dart') || q.contains('python') ||
           q.contains('flutter') || q.contains('função') ||
           q.contains('erro') || q.contains('bug')) {
-        return AIResponse(text: await getAnswerGroq(question), provider: 'Groq');
+        return AIResponse(text: await getAnswerGroq(prompt), provider: 'Groq');
       }
 
       if (q.contains('explica') || q.contains('redija') ||
           q.contains('resumo') || q.contains('analise') ||
           q.contains('escreva') || q.contains('texto') ||
           q.length > 300) {
-        return AIResponse(text: await getAnswerClaude(question), provider: 'Claude');
+        return AIResponse(text: await getAnswerClaude(prompt), provider: 'Claude');
       }
 
-      return AIResponse(text: await getAnswerGemini(question), provider: 'Gemini');
+      return AIResponse(text: await getAnswerGemini(prompt), provider: 'Gemini');
     } catch (e) {
       return AIResponse(text: 'Erro geral: $e', provider: 'Erro');
     }
