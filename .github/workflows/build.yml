@@ -33,6 +33,9 @@ jobs:
 
       - name: Build APK
         run: flutter build apk --release --verbose 2>&1 | tail -150
+      - name: Encontrar APK
+        run: find build -name "*.apk" 2>/dev/null || echo "Nenhum APK encontrado"
+
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
