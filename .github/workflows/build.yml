@@ -1,0 +1,36 @@
+name: Build APK
+
+on:
+  push:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Flutter
+        uses: subosito/flutter-action@v2
+        with:
+          flutter-version: '3.22.0'
+
+      - name: Configurar chaves no global.dart
+        run: |
+          sed -i "s/String apiKey = '';/String apiKey = 'SUA_CHAVE_GEMINI';/" lib/helper/global.dart
+          sed -i "s/String gptKey = '';/String gptKey = 'SUA_CHAVE_GPT';/" lib/helper/global.dart
+          sed -i "s/String claudeKey = '';/String claudeKey = 'SUA_CHAVE_CLAUDE';/" lib/helper/global.dart
+          sed -i "s/String xiaoAiKey = '';/String xiaoAiKey = 'SUA_CHAVE_XIAOAI';/" lib/helper/global.dart
+
+      - name: Get packages
+        run: flutter pub get
+
+      - name: Build APK
+        run: flutter build apk --release
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-assistant-apk
+          path: build/app/outputs/flutter-apk/app-release.apk
