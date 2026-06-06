@@ -31,7 +31,6 @@ class APIs {
         }),
       );
       final data = jsonDecode(res.body);
-      log('Gemini response: ${res.body}');
       if (data['candidates'] == null) return 'Erro Gemini: ${res.body}';
       return data['candidates'][0]['content']['parts'][0]['text'];
     } catch (e) {
@@ -40,17 +39,16 @@ class APIs {
     }
   }
 
-  static Future<String> getAnswerClaude(String question) async {
+  static Future<String> getAnswerDeepSeek(String question) async {
     try {
       final res = await post(
-        Uri.parse('https://api.anthropic.com/v1/messages'),
+        Uri.parse('https://api.deepseek.com/chat/completions'),
         headers: {
           'Content-Type': 'application/json',
-          'x-api-key': claudeKey,
-          'anthropic-version': '2023-06-01',
+          'Authorization': 'Bearer $deepseekKey',
         },
         body: jsonEncode({
-          'model': 'claude-sonnet-4-5',
+          'model': 'deepseek-chat',
           'max_tokens': 2000,
           'messages': [
             {'role': 'user', 'content': question},
@@ -58,12 +56,11 @@ class APIs {
         }),
       );
       final data = jsonDecode(res.body);
-      log('Claude response: ${res.body}');
-      if (data['content'] == null) return 'Erro Claude: ${res.body}';
-      return data['content'][0]['text'];
+      if (data['choices'] == null) return 'Erro DeepSeek: ${res.body}';
+      return data['choices'][0]['message']['content'];
     } catch (e) {
-      log('getAnswerClaudeE: $e');
-      return 'Erro Claude: $e';
+      log('getAnswerDeepSeekE: $e');
+      return 'Erro DeepSeek: $e';
     }
   }
 
@@ -107,7 +104,7 @@ class APIs {
           q.contains('resumo') || q.contains('analise') ||
           q.contains('escreva') || q.contains('texto') ||
           q.length > 300) {
-        return AIResponse(text: await getAnswerClaude(prompt), provider: 'Claude');
+        return AIResponse(text: await getAnswerDeepSeek(prompt), provider: 'DeepSeek');
       }
 
       return AIResponse(text: await getAnswerGemini(prompt), provider: 'Gemini');
