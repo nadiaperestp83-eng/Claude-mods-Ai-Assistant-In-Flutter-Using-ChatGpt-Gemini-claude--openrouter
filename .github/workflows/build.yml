@@ -29,6 +29,7 @@ jobs:
           sed -i "s/String groqKey = '';/String groqKey = '${{ secrets.GROQ_KEY }}';/" lib/helper/global.dart
           sed -i "s/String deepseekKey = '';/String deepseekKey = '${{ secrets.DEEPSEEK_KEY }}';/" lib/helper/global.dart
           sed -i "s/String openrouterKey = '';/String openrouterKey = '${{ secrets.OPENROUTER_KEY }}';/" lib/helper/global.dart
+          sed -i "s/String openaiKey = '';/String openaiKey = '${{ secrets.OPENAI_KEY }}';/" lib/helper/global.dart
       - name: Get packages
         run: flutter pub get
 
