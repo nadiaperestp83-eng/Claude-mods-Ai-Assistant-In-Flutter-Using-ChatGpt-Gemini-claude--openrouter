@@ -64,7 +64,6 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
           ),
         ],
       ),
-
       body: Stack(
         children: [
           Container(
@@ -72,10 +71,7 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
               gradient: LinearGradient(
                 begin: Alignment.topCenter,
                 end: Alignment.bottomCenter,
-                colors: [
-                  Color(0xFFF8F9FF),
-                  Color(0xFFFFFFFF),
-                ],
+                colors: [Color(0xFFF8F9FF), Color(0xFFFFFFFF)],
               ),
             ),
           ),
@@ -94,7 +90,7 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
           else if (_selectedTab == 1)
             ImageFeature()
           else if (_selectedTab == 2)
-            TranslateFeature()
+            TranslatorFeature()
           else
             const Center(
               child: Column(
@@ -108,7 +104,6 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
             ),
         ],
       ),
-
       bottomSheet: Container(
         decoration: BoxDecoration(
           color: Colors.white,
@@ -168,8 +163,8 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
                                 FocusScope.of(context).unfocus(),
                             decoration: const InputDecoration(
                               hintText: 'Digite ou fale algo...',
-                              hintStyle: TextStyle(
-                                  fontSize: 14, color: Colors.grey),
+                              hintStyle:
+                                  TextStyle(fontSize: 14, color: Colors.grey),
                               border: InputBorder.none,
                               contentPadding: EdgeInsets.symmetric(
                                   horizontal: 16, vertical: 10),
@@ -194,10 +189,7 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
                         decoration: const BoxDecoration(
                           shape: BoxShape.circle,
                           gradient: LinearGradient(
-                            colors: [
-                              Color(0xFF6B8EFF),
-                              Color(0xFFB06BFF)
-                            ],
+                            colors: [Color(0xFF6B8EFF), Color(0xFFB06BFF)],
                           ),
                         ),
                         child: IconButton(
@@ -213,11 +205,9 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
           ),
         ),
       ),
-
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          border:
-              Border(top: BorderSide(color: Color(0xFFEEEEEE))),
+          border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedTab,
@@ -226,8 +216,8 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
           backgroundColor: Colors.white,
           selectedItemColor: const Color(0xFF6B8EFF),
           unselectedItemColor: Colors.grey,
-          selectedLabelStyle: const TextStyle(
-              fontSize: 11, fontWeight: FontWeight.w600),
+          selectedLabelStyle:
+              const TextStyle(fontSize: 11, fontWeight: FontWeight.w600),
           unselectedLabelStyle: const TextStyle(fontSize: 11),
           elevation: 0,
           items: _tabs
@@ -245,17 +235,13 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        padding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
         decoration: BoxDecoration(
           color: const Color(0xFFF0F0F0),
           borderRadius: BorderRadius.circular(20),
         ),
-        child: Text(
-          label,
-          style:
-              const TextStyle(fontSize: 13, color: Colors.black87),
-        ),
+        child: Text(label,
+            style: const TextStyle(fontSize: 13, color: Colors.black87)),
       ),
     );
   }
