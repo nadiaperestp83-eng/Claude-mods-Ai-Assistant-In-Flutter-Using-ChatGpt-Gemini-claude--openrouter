@@ -1,3 +1,4 @@
+import 'package:audioplayers/audioplayers.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_tts/flutter_tts.dart';
@@ -7,6 +8,7 @@ import '../../helper/my_dialog.dart';
 
 import '../../controller/chat_controller.dart';
 import '../../helper/global.dart';
+import '../../helper/voice_api.dart';
 import '../../widget/message_card.dart';
 import 'image_feature.dart';
 import 'translator_feature.dart';
@@ -22,6 +24,7 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
   final _c = ChatController();
   final _tts = FlutterTts();
   final _stt = SpeechToText();
+  final _player = AudioPlayer();
   int _selectedTab = 0;
   bool _isListening = false;
   bool _ttsEnabled = true;
@@ -44,11 +47,27 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
     await _tts.setPitch(1.0);
   }
 
+  /// Voz principal: Razo (servidor neural online).
+  /// Se falhar por qualquer motivo, cai no flutter_tts local (fallback).
   void _speak(String text) async {
-    if (_ttsEnabled && text.isNotEmpty) {
-      await _tts.stop();
-      await _tts.speak(text);
+    if (!_ttsEnabled || text.isEmpty) return;
+
+    await _tts.stop();
+    await _player.stop();
+
+    final audioBytes = await VoiceApi.synthesize(text);
+
+    if (audioBytes != null && audioBytes.isNotEmpty) {
+      try {
+        await _player.play(BytesSource(audioBytes));
+        return;
+      } catch (e) {
+        // Se a reprodução falhar, segue para o fallback abaixo.
+      }
     }
+
+    // Fallback: voz neural local do dispositivo.
+    await _tts.speak(text);
   }
 
   void _startListening() async {
@@ -86,6 +105,7 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
   void dispose() {
     _tts.stop();
     _stt.stop();
+    _player.dispose();
     super.dispose();
   }
 
@@ -119,7 +139,10 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
               ),
               onPressed: () {
                 setState(() => _ttsEnabled = !_ttsEnabled);
-                if (!_ttsEnabled) _tts.stop();
+                if (!_ttsEnabled) {
+                  _tts.stop();
+                  _player.stop();
+                }
               },
             ),
           IconButton(
