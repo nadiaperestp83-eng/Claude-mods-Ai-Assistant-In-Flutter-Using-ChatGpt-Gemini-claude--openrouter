@@ -11,3 +11,4 @@ String deepseekKey = '';
 String openrouterKey = '';
 String openaiKey = '';
 String cloudflareKey = '';
+String cerebrasKey = '';
