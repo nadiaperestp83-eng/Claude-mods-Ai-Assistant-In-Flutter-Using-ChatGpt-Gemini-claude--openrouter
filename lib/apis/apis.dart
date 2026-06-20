@@ -47,6 +47,10 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
 
   // ── OPENROUTER ───────────────────────────────────
   static Future<String> getAnswerOpenRouter(String question, String model) async {
+    if (openrouterKey.isEmpty) {
+      log('⚠️ OpenRouter key não definida');
+      return '';
+    }
     try {
       final res = await post(
         Uri.parse('https://openrouter.ai/api/v1/chat/completions'),
@@ -65,8 +69,12 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
         }),
       );
       final body = utf8.decode(res.bodyBytes);
+      log('OpenRouter response: ${body.substring(0, body.length > 200 ? 200 : body.length)}...');
       final data = jsonDecode(body);
-      if (data['choices'] == null) return '';
+      if (data['choices'] == null || data['choices'].isEmpty) {
+        log('OpenRouter: choices vazio');
+        return '';
+      }
       return data['choices'][0]['message']['content'] ?? '';
     } catch (e) {
       log('getAnswerOpenRouterE: $e');
@@ -76,6 +84,10 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
 
   // ── GEMINI ──────────────────────────────────────
   static Future<String> getAnswerGemini(String question) async {
+    if (apiKey.isEmpty) {
+      log('⚠️ Gemini API key não definida');
+      return '';
+    }
     try {
       final res = await post(
         Uri.parse(
@@ -97,8 +109,12 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
         }),
       );
       final body = utf8.decode(res.bodyBytes);
+      log('Gemini response: ${body.substring(0, body.length > 200 ? 200 : body.length)}...');
       final data = jsonDecode(body);
-      if (data['candidates'] == null) return '';
+      if (data['candidates'] == null || data['candidates'].isEmpty) {
+        log('Gemini: candidates vazio');
+        return '';
+      }
       return data['candidates'][0]['content']['parts'][0]['text'] ?? '';
     } catch (e) {
       log('getAnswerGeminiE: $e');
@@ -108,6 +124,10 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
 
   // ── GROQ ─────────────────────────────────────────
   static Future<String> getAnswerGroq(String question, String model) async {
+    if (groqKey.isEmpty) {
+      log('⚠️ Groq key não definida');
+      return '';
+    }
     try {
       final res = await post(
         Uri.parse('https://api.groq.com/openai/v1/chat/completions'),
@@ -125,8 +145,12 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
         }),
       );
       final body = utf8.decode(res.bodyBytes);
+      log('Groq response: ${body.substring(0, body.length > 200 ? 200 : body.length)}...');
       final data = jsonDecode(body);
-      if (data['choices'] == null) return '';
+      if (data['choices'] == null || data['choices'].isEmpty) {
+        log('Groq: choices vazio');
+        return '';
+      }
       return data['choices'][0]['message']['content'] ?? '';
     } catch (e) {
       log('getAnswerGroqE: $e');
@@ -136,6 +160,10 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
 
   // ── CEREBRAS ─────────────────────────────────────
   static Future<String> getAnswerCerebras(String question, String model) async {
+    if (cerebrasKey.isEmpty) {
+      log('⚠️ Cerebras key não definida');
+      return '';
+    }
     try {
       final res = await post(
         Uri.parse('https://api.cerebras.ai/v1/chat/completions'),
@@ -153,8 +181,12 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
         }),
       );
       final body = utf8.decode(res.bodyBytes);
+      log('Cerebras response: ${body.substring(0, body.length > 200 ? 200 : body.length)}...');
       final data = jsonDecode(body);
-      if (data['choices'] == null) return '';
+      if (data['choices'] == null || data['choices'].isEmpty) {
+        log('Cerebras: choices vazio');
+        return '';
+      }
       return data['choices'][0]['message']['content'] ?? '';
     } catch (e) {
       log('getAnswerCerebrasE: $e');
@@ -179,17 +211,25 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
 
   // ── CLOUDFLARE WORKERS AI (geração de imagem) ────
   static Future<String> generateImage(String prompt) async {
+    if (cloudflareKey.isEmpty) {
+      log('⚠️ Cloudflare key não definida');
+      return '';
+    }
+    // A conta ID deve ser configurável – vamos usar uma variável do global.dart
+    const String accountId = '344ae813a0f97087c8b9d03eeb5dbfb5'; // substitua pela sua
     try {
       final res = await post(
         Uri.parse(
-            'https://api.cloudflare.com/client/v4/accounts/344ae813a0f97087c8b9d03eeb5dbfb5/ai/run/@cf/black-forest-labs/flux-1-schnell'),
+            'https://api.cloudflare.com/client/v4/accounts/$accountId/ai/run/@cf/black-forest-labs/flux-1-schnell'),
         headers: {
           'Authorization': 'Bearer $cloudflareKey',
           'Content-Type': 'application/json',
         },
         body: jsonEncode({'prompt': prompt}),
       );
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final body = utf8.decode(res.bodyBytes);
+      log('Cloudflare response: ${body.substring(0, body.length > 200 ? 200 : body.length)}...');
+      final data = jsonDecode(body);
       if (data['result'] == null) return '';
       return data['result']['image'] ?? '';
     } catch (e) {
@@ -200,6 +240,16 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
 
   // ── ROTEADOR COM FALLBACK ────────────────────────
   static Future<AIResponse> getAnswer(String question) async {
+    // Se nenhuma chave estiver configurada, avisa imediatamente
+    final hasAnyKey = apiKey.isNotEmpty || openrouterKey.isNotEmpty ||
+        groqKey.isNotEmpty || cerebrasKey.isNotEmpty;
+    if (!hasAnyKey) {
+      return AIResponse(
+        text: '⚠️ Nenhuma chave de API configurada. Configure em lib/helper/global.dart.',
+        provider: 'Erro',
+      );
+    }
+
     final q = question.toLowerCase();
     final prompt = 'Responda sempre em português brasileiro. $question';
 
@@ -248,17 +298,19 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
     for (int i = 0; i < attempts.length; i++) {
       try {
         final result = await attempts[i]();
-        if (result.isNotEmpty && !result.startsWith('Erro')) {
+        if (result.isNotEmpty) {
           return AIResponse(text: result, provider: names[i]);
         }
+        log('Tentativa $i (${names[i]}) retornou vazio');
       } catch (e) {
-        log('Tentativa $i falhou: $e');
+        log('Tentativa $i (${names[i]}) falhou: $e');
       }
     }
 
     return AIResponse(
-        text: 'Nenhuma IA disponível no momento. Tente novamente.',
-        provider: 'Erro');
+      text: 'Nenhuma IA disponível no momento. Verifique sua conexão e as chaves de API.',
+      provider: 'Erro',
+    );
   }
 
   // ── IMAGENS LEXICA (busca) ────────────────────────
@@ -266,7 +318,9 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
     try {
       final res =
           await get(Uri.parse('https://lexica.art/api/v1/search?q=$prompt'));
-      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final body = utf8.decode(res.bodyBytes);
+      final data = jsonDecode(body);
+      if (data['images'] == null) return [];
       return List.from(data['images']).map((e) => e['src'].toString()).toList();
     } catch (e) {
       log('searchAiImagesE: $e');
