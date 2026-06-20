@@ -29,8 +29,6 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
   final _tabs = [
     {'icon': Icons.chat_bubble_rounded, 'label': 'Chat'},
     {'icon': Icons.image_rounded, 'label': 'Imagem'},
-    {'icon': Icons.translate_rounded, 'label': 'Tradutor'},
-    {'icon': Icons.videocam_rounded, 'label': 'Vídeo'},
   ];
 
   @override
@@ -94,25 +92,19 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: Colors.white,
+      backgroundColor: const Color(0xFF121212),
       appBar: AppBar(
         elevation: 0,
-        backgroundColor: Colors.transparent,
-        systemOverlayStyle: SystemUiOverlayStyle.dark,
+        backgroundColor: const Color(0xFF121212),
+        systemOverlayStyle: SystemUiOverlayStyle.light,
         leading: IconButton(
-          icon: const Icon(Icons.menu, color: Colors.black87),
+          icon: const Icon(Icons.menu, color: Colors.white),
           onPressed: () {},
         ),
         title: Text(
-          _selectedTab == 0
-              ? 'Assistente IA'
-              : _selectedTab == 1
-                  ? 'Criar Imagem'
-                  : _selectedTab == 2
-                      ? 'Tradutor'
-                      : 'Criar Vídeo',
+          _selectedTab == 0 ? 'Assistente IA' : 'Criar Imagem',
           style: const TextStyle(
-            color: Colors.black87,
+            color: Colors.white,
             fontSize: 17,
             fontWeight: FontWeight.w600,
           ),
@@ -131,24 +123,15 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
               },
             ),
           IconButton(
-            icon: const Icon(Icons.add_circle_outline, color: Colors.black87),
+            icon: const Icon(Icons.add_circle_outline, color: Colors.white),
             onPressed: () {},
           ),
         ],
       ),
-      body: Stack(
-        children: [
-          Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFFF8F9FF), Color(0xFFFFFFFF)],
-              ),
-            ),
-          ),
-          if (_selectedTab == 0)
-            Obx(() => ListView(
+      body: Container(
+        color: const Color(0xFF121212),
+        child: _selectedTab == 0
+            ? Obx(() => ListView(
                   physics: const BouncingScrollPhysics(),
                   controller: _c.scrollC,
                   padding: EdgeInsets.only(
@@ -159,65 +142,20 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
                   children:
                       _c.list.map((e) => MessageCard(message: e)).toList(),
                 ))
-          else if (_selectedTab == 1)
-            ImageFeature()
-          else if (_selectedTab == 2)
-            TranslatorFeature()
-          else
-            const Center(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(Icons.videocam_rounded, size: 64, color: Colors.grey),
-                  SizedBox(height: 16),
-                  Text('Em breve', style: TextStyle(color: Colors.grey)),
-                ],
-              ),
-            ),
-        ],
+            : ImageFeature(),
       ),
       bottomSheet: _selectedTab == 0
           ? Container(
-              decoration: BoxDecoration(
-                color: Colors.white,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.black.withOpacity(0.06),
-                    blurRadius: 20,
-                    offset: const Offset(0, -4),
-                  ),
-                ],
+              decoration: const BoxDecoration(
+                color: Color(0xFF121212),
               ),
               child: SafeArea(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    // Chips
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 8),
-                      child: SingleChildScrollView(
-                        scrollDirection: Axis.horizontal,
-                        child: Row(
-                          children: [
-                            _chip('🎨 Criar Imagem',
-                                () => setState(() => _selectedTab = 1)),
-                            const SizedBox(width: 8),
-                            _chip('🌐 Traduzir',
-                                () => setState(() => _selectedTab = 2)),
-                            const SizedBox(width: 8),
-                            _chip('🎬 Criar Vídeo',
-                                () => setState(() => _selectedTab = 3)),
-                            const SizedBox(width: 8),
-                            _chip('🔍 Pesquisar', () {}),
-                          ],
-                        ),
-                      ),
-                    ),
-
                     // Input
                     Padding(
-                      padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+                      padding: const EdgeInsets.fromLTRB(12, 12, 12, 8),
                       child: Row(
                         children: [
                           IconButton(
@@ -235,6 +173,7 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
                                 controller: _c.textC,
                                 onTapOutside: (e) =>
                                     FocusScope.of(context).unfocus(),
+                                style: const TextStyle(color: Colors.black87),
                                 decoration: InputDecoration(
                                   hintText: _isListening
                                       ? 'Ouvindo...'
@@ -317,13 +256,14 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
           : null,
       bottomNavigationBar: Container(
         decoration: const BoxDecoration(
-          border: Border(top: BorderSide(color: Color(0xFFEEEEEE))),
+          color: Color(0xFF121212),
+          border: Border(top: BorderSide(color: Color(0xFF1E1E1E))),
         ),
         child: BottomNavigationBar(
           currentIndex: _selectedTab,
           onTap: (i) => setState(() => _selectedTab = i),
           type: BottomNavigationBarType.fixed,
-          backgroundColor: Colors.white,
+          backgroundColor: const Color(0xFF121212),
           selectedItemColor: const Color(0xFF6B8EFF),
           unselectedItemColor: Colors.grey,
           selectedLabelStyle: const TextStyle(
@@ -337,21 +277,6 @@ class _ChatBotFeatureState extends State<ChatBotFeature> {
                   ))
               .toList(),
         ),
-      ),
-    );
-  }
-
-  Widget _chip(String label, VoidCallback onTap) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-        decoration: BoxDecoration(
-          color: const Color(0xFFF0F0F0),
-          borderRadius: BorderRadius.circular(20),
-        ),
-        child: Text(label,
-            style: const TextStyle(fontSize: 13, color: Colors.black87)),
       ),
     );
   }
