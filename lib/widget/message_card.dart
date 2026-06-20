@@ -34,7 +34,7 @@ class _UserMessage extends StatelessWidget {
             constraints: BoxConstraints(maxWidth: mq.width * .75),
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
             decoration: BoxDecoration(
-              color: const Color(0xFFE8743B),
+              color: const Color(0xFFE67E22),
               borderRadius: BorderRadius.circular(24),
             ),
             child: Text(
