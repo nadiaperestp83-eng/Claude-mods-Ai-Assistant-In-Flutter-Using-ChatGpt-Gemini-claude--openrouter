@@ -79,10 +79,20 @@ class APIs {
           'anthropic-version': '2023-06-01',
         },
         body: jsonEncode({
-          'model': 'claude-sonnet-4-5',
+          'model': 'claude-sonnet-4-6',
           'max_tokens': 2000,
           'messages': [
             {'role': 'user', 'content': question},
+          ],
+          // Permite que o Claude busque na web quando achar necessário.
+          // Ele decide sozinho; não busca em toda pergunta. max_uses
+          // limita o número de buscas numa única resposta.
+          'tools': [
+            {
+              'type': 'web_search_20250305',
+              'name': 'web_search',
+              'max_uses': 3,
+            }
           ],
         }),
       );
@@ -94,7 +104,11 @@ class APIs {
         );
       }
       final data = jsonDecode(utf8.decode(res.bodyBytes));
-      final content = data['content']?[0]?['text'] ?? '';
+      // Com web_search, o content pode ter múltiplos blocos (texto + uso de
+      // ferramenta). Pegamos o último bloco de texto, que é a resposta final.
+      final contentBlocks = data['content'] as List? ?? [];
+      final textBlocks = contentBlocks.where((b) => b['type'] == 'text').toList();
+      final content = textBlocks.isNotEmpty ? (textBlocks.last['text'] ?? '') : '';
       if (content.isEmpty) {
         return AIResponse(text: '❌ Claude direto: resposta vazia.', provider: 'Erro');
       }
@@ -108,7 +122,7 @@ class APIs {
   static Future<AIResponse> getAnswerClaude(String question) async {
     final direct = await getAnswerClaudeDirect(question);
     if (direct.provider != 'Erro') return direct;
-    return getAnswerOpenRouter(question, 'anthropic/claude-sonnet-4-5');
+    return getAnswerOpenRouter(question, 'anthropic/claude-sonnet-4-6');
   }
 
   // ── GEMINI (auth key via header x-goog-api-key) ──
@@ -131,7 +145,13 @@ class APIs {
                 {'text': question}
               ]
             }
-          ]
+          ],
+          // Permite que o Gemini busque no Google quando achar necessário
+          // (ex: data atual, notícias, fatos que mudam com o tempo).
+          // Ele decide sozinho quando usar; não busca em toda pergunta.
+          'tools': [
+            {'google_search': {}}
+          ],
         }),
       );
       if (res.statusCode != 200) {
@@ -281,7 +301,7 @@ class APIs {
       // GRUPO 2: complexo
       attempts = [
         {'fn': () => getAnswerCerebras(question, 'llama-4-scout-17b-16e-instruct'), 'name': 'Cerebras'},
-        {'fn': () => getAnswerGroq(question, 'llama-3.3-70b-versatile'), 'name': 'Groq'},
+        {'fn': () => getAnswerGroq(question, 'groq/compound'), 'name': 'Groq'},
         {'fn': () => getAnswerClaude(question), 'name': 'Claude'},
         {'fn': () => getAnswerGemini(question), 'name': 'Gemini'},
       ];
@@ -289,7 +309,7 @@ class APIs {
       // GRUPO 1: simples/dia a dia
       attempts = [
         {'fn': () => getAnswerGemini(question), 'name': 'Gemini'},
-        {'fn': () => getAnswerGroq(question, 'gemma2-9b-it'), 'name': 'Groq'},
+        {'fn': () => getAnswerGroq(question, 'groq/compound'), 'name': 'Groq'},
         {'fn': () => getAnswerCerebras(question, 'llama-4-scout-17b-16e-instruct'), 'name': 'Cerebras'},
         {'fn': () => getAnswerClaude(question), 'name': 'Claude'},
       ];
