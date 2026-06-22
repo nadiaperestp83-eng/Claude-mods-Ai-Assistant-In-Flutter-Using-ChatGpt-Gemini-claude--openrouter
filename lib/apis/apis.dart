@@ -23,6 +23,7 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
   **Importante**: Nunca trunque uma resposta devido a limite de tokens. Forneça o código completo, mesmo que extenso. Não comente sobre gasto de tokens.
 - **Uma pergunta por vez**: Se precisar de esclarecimento, faça exatamente uma pergunta curta e aguarde.
 - **Postura de assistente**: Você é uma assistente, não uma pessoa. Nunca confronte o usuário, nunca dê sermões ou lições morais, e nunca afirme entender ou sentir emoções. Responda de forma direta e objetiva, respeitando sempre o usuário como indivíduo.
+- **Datas, clima e informação atual**: Se a pergunta envolver data de hoje, calendário, previsão do tempo, notícias, cotações, resultados ou qualquer informação que muda com o tempo, use sua ferramenta de busca web (quando disponível) para responder com dados reais e atuais. Nunca invente uma data, valor ou fato — se você não tiver acesso a busca e não souber a informação atual com certeza, diga isso claramente em vez de chutar.
 
 ## Padrões de Código
 - Use null-safety e Dart 3.
@@ -43,7 +44,8 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
       cerebrasKey.isNotEmpty ||
       claudeKey.isNotEmpty ||
       huggingfaceKey.isNotEmpty ||
-      bazaarKey.isNotEmpty;
+      bazaarKey.isNotEmpty ||
+      serpapiKey.isNotEmpty;
 
   static Future<AIResponse> _simulate(String question, List<String> errors) async {
     await Future.delayed(const Duration(milliseconds: 500));
@@ -98,6 +100,7 @@ _(Esta é uma resposta simulada. Atualize suas chaves em `lib/helper/global.dart
     if (claudeKey.isEmpty) missing.add('Claude (claudeKey)');
     if (huggingfaceKey.isEmpty) missing.add('Hugging Face (huggingfaceKey)');
     if (bazaarKey.isEmpty) missing.add('BazaarLink (bazaarKey)');
+    if (serpapiKey.isEmpty) missing.add('SerpApi (serpapiKey)');
     if (missing.isEmpty) return '';
     return '⚠️ Chaves não configuradas: ${missing.join(', ')}.\nConfigure em lib/helper/global.dart.';
   }
@@ -191,6 +194,66 @@ _(Esta é uma resposta simulada. Atualize suas chaves em `lib/helper/global.dart
       return AIResponse(text: content, provider: 'BazaarLink');
     } catch (e) {
       return AIResponse(text: 'BazaarLink: exceção - $e', provider: 'Erro');
+    }
+  }
+
+  // ── SERPAPI (fallback da busca do Gemini) ───────────
+  // Usado quando o Gemini (com tool google_search) falha ou não
+  // consegue responder. Busca real na web e formata o resultado
+  // direto, sem chamada extra de IA (evita gasto de tokens).
+  static Future<AIResponse> getAnswerSerpApi(String question) async {
+    if (serpapiKey.isEmpty) {
+      return AIResponse(text: 'SerpApi: chave não configurada', provider: 'Erro');
+    }
+    try {
+      final uri = Uri.parse('https://serpapi.com/search.json').replace(
+        queryParameters: {
+          'q': question,
+          'api_key': serpapiKey,
+          'hl': 'pt-br',
+          'gl': 'br',
+        },
+      );
+      final res = await get(uri).timeout(_timeout);
+      if (res.statusCode != 200) {
+        final errorBody = utf8.decode(res.bodyBytes);
+        return AIResponse(text: 'SerpApi (${res.statusCode}): $errorBody', provider: 'Erro');
+      }
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+
+      // Tenta as fontes mais diretas primeiro (answer box, dados estruturados).
+      final answerBox = data['answer_box'];
+      if (answerBox != null) {
+        final text = answerBox['answer'] ??
+            answerBox['snippet'] ??
+            answerBox['result'] ??
+            '';
+        if (text is String && text.isNotEmpty) {
+          return AIResponse(text: text, provider: 'SerpApi');
+        }
+      }
+
+      final knowledgeGraph = data['knowledge_graph'];
+      if (knowledgeGraph != null && knowledgeGraph['description'] != null) {
+        return AIResponse(text: knowledgeGraph['description'], provider: 'SerpApi');
+      }
+
+      // Senão, junta os snippets dos primeiros resultados orgânicos.
+      final organic = data['organic_results'] as List?;
+      if (organic != null && organic.isNotEmpty) {
+        final snippets = organic
+            .take(3)
+            .map((r) => r['snippet'] ?? '')
+            .where((s) => s.toString().isNotEmpty)
+            .join('\n\n');
+        if (snippets.isNotEmpty) {
+          return AIResponse(text: snippets, provider: 'SerpApi');
+        }
+      }
+
+      return AIResponse(text: 'SerpApi: nenhum resultado encontrado', provider: 'Erro');
+    } catch (e) {
+      return AIResponse(text: 'SerpApi: exceção - $e', provider: 'Erro');
     }
   }
 
@@ -456,12 +519,16 @@ _(Esta é uma resposta simulada. Atualize suas chaves em `lib/helper/global.dart
   }
 
   // ── GRUPO 1 (perguntas simples do dia a dia) ────────
-  // HF (Llama→Mistral→Qwen) → Gemini → Groq → Cerebras → BazaarLink
+  // Gemini → Groq → HF (Llama→Mistral→Qwen) → Cerebras → BazaarLink
+  // Gemini e Groq vêm primeiro porque têm busca web real; o system
+  // prompt instrui qualquer IA a usar busca quando a pergunta exigir
+  // dado atual (data, clima, notícia) e a admitir quando não souber.
   static Future<AIResponse> _runGroup1(String prompt, List<String> errors) async {
     final attempts = <Map<String, dynamic>>[
-      {'fn': () => getAnswerHuggingFace(prompt), 'name': 'HuggingFace'},
       {'fn': () => getAnswerGemini(prompt), 'name': 'Gemini'},
-      {'fn': () => getAnswerGroq(prompt, 'llama-3.3-70b-versatile'), 'name': 'Groq'},
+      {'fn': () => getAnswerSerpApi(prompt), 'name': 'SerpApi'},
+      {'fn': () => getAnswerGroq(prompt, 'groq/compound'), 'name': 'Groq-Compound'},
+      {'fn': () => getAnswerHuggingFace(prompt), 'name': 'HuggingFace'},
       {'fn': () => getAnswerCerebras(prompt, 'llama-3.1-8b'), 'name': 'Cerebras'},
       {'fn': () => getAnswerBazaarLink(prompt), 'name': 'BazaarLink'},
     ];
@@ -488,6 +555,7 @@ _(Esta é uma resposta simulada. Atualize suas chaves em `lib/helper/global.dart
       {'fn': () => getAnswerGroq(prompt, 'llama-3.3-70b-versatile'), 'name': 'Groq'},
       {'fn': () => getAnswerClaude(prompt), 'name': 'Claude'},
       {'fn': () => getAnswerGemini(prompt), 'name': 'Gemini'},
+      {'fn': () => getAnswerSerpApi(prompt), 'name': 'SerpApi'},
       {'fn': () => getAnswerBazaarLink(prompt), 'name': 'BazaarLink'},
     ];
     for (final attempt in attempts) {
