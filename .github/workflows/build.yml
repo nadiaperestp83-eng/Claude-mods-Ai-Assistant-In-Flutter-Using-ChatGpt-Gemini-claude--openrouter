@@ -32,8 +32,14 @@ jobs:
           sed -i "s/String cloudflareKey = '';/String cloudflareKey = '${{ secrets.CLOUDFLARE_KEY }}';/" lib/helper/global.dart
           sed -i "s/String openaiKey = '';/String openaiKey = '${{ secrets.OPENAI_KEY }}';/" lib/helper/global.dart
           sed -i "s/String cerebrasKey = '';/String cerebrasKey = '${{ secrets.CEREBRAS_KEY }}';/" lib/helper/global.dart
+          sed -i "s/String huggingfaceKey = '';/String huggingfaceKey = '${{ secrets.HUGGINGFACE_KEY }}';/" lib/helper/global.dart
+          sed -i "s/String bazaarKey = '';/String bazaarKey = '${{ secrets.BAZAAR_KEY }}';/" lib/helper/global.dart
+
       - name: Get packages
         run: flutter pub get
+
+      - name: Gerar ícone do app
+        run: flutter pub run flutter_launcher_icons
 
       - name: Build APK
         run: flutter build apk --release
