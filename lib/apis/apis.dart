@@ -13,6 +13,13 @@ class AIResponse {
   AIResponse({required this.text, required this.provider});
 }
 
+class VideoResponse {
+  final String? videoUrl;
+  final String? error;
+  VideoResponse({this.videoUrl, this.error});
+  bool get success => videoUrl != null && videoUrl!.isNotEmpty;
+}
+
 class APIs {
   static const String systemPrompt = '''
 Você é um especialista em Flutter/Dart. Suas respostas são práticas, completas e prontas para copiar e colar. Priorize simplicidade e dependências mínimas.
@@ -45,7 +52,8 @@ Você é um especialista em Flutter/Dart. Suas respostas são práticas, complet
       claudeKey.isNotEmpty ||
       huggingfaceKey.isNotEmpty ||
       bazaarKey.isNotEmpty ||
-      serpapiKey.isNotEmpty;
+      serpapiKey.isNotEmpty ||
+      magicHourKey.isNotEmpty;
 
   static Future<AIResponse> _simulate(String question, List<String> errors) async {
     await Future.delayed(const Duration(milliseconds: 500));
@@ -501,6 +509,95 @@ _(Esta é uma resposta simulada. Atualize suas chaves em `lib/helper/global.dart
       return data['result']?['image'] ?? '❌ Cloudflare: imagem não gerada.';
     } catch (e) {
       return '❌ Cloudflare: exceção - $e';
+    }
+  }
+
+  // ── DETECÇÃO: pedido de vídeo no texto livre ────────
+  static bool isVideoRequest(String question) {
+    final q = question.toLowerCase();
+    const triggers = [
+      'crie um vídeo', 'criar um vídeo', 'crie um video', 'criar um video',
+      'gere um vídeo', 'gerar um vídeo', 'gere um video', 'gerar um video',
+      'faça um vídeo', 'fazer um vídeo', 'faça um video', 'fazer um video',
+      'cria um vídeo', 'cria um video', 'gera um vídeo', 'gera um video',
+      'faz um vídeo', 'faz um video',
+    ];
+    return triggers.any((t) => q.contains(t));
+  }
+
+  // ── VÍDEO (Magic Hour, texto → vídeo, modelo LTX-2.3) ─
+  // Fluxo em 2 passos: 1) cria o pedido de geração, recebe um ID.
+  // 2) consulta esse ID em intervalos até o vídeo ficar pronto.
+  static Future<VideoResponse> generateVideo(String prompt) async {
+    if (magicHourKey.isEmpty) {
+      return VideoResponse(error: 'Magic Hour: chave não configurada');
+    }
+    try {
+      // Passo 1: criar o pedido de geração.
+      final createRes = await post(
+        Uri.parse('https://api.magichour.ai/v1/text-to-video'),
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Authorization': 'Bearer $magicHourKey',
+        },
+        body: jsonEncode({
+          'name': 'Oryza Video',
+          'style': {'prompt': prompt},
+          'resolution': '480p',
+          'end_seconds': 3,
+          'orientation': 'landscape',
+        }),
+      ).timeout(const Duration(seconds: 15));
+
+      if (createRes.statusCode != 200 && createRes.statusCode != 201) {
+        final errorBody = utf8.decode(createRes.bodyBytes);
+        return VideoResponse(error: 'Magic Hour (${createRes.statusCode}): $errorBody');
+      }
+
+      final createData = jsonDecode(utf8.decode(createRes.bodyBytes));
+      final videoId = createData['id'];
+      if (videoId == null) {
+        return VideoResponse(error: 'Magic Hour: ID do vídeo não retornado');
+      }
+
+      // Passo 2: polling do status até completar (ou desistir após o limite).
+      const maxTentativas = 20; // ~20 x 6s = 120s no máximo.
+      for (int i = 0; i < maxTentativas; i++) {
+        await Future.delayed(const Duration(seconds: 6));
+
+        final statusRes = await get(
+          Uri.parse('https://api.magichour.ai/v1/text-to-video/$videoId'),
+          headers: {'Authorization': 'Bearer $magicHourKey'},
+        ).timeout(const Duration(seconds: 15));
+
+        if (statusRes.statusCode != 200) {
+          continue; // tenta de novo na próxima rodada de polling.
+        }
+
+        final statusData = jsonDecode(utf8.decode(statusRes.bodyBytes));
+        final status = statusData['status'];
+
+        if (status == 'complete') {
+          final downloads = statusData['downloads'] as List?;
+          final url = (downloads != null && downloads.isNotEmpty)
+              ? downloads[0]['url']
+              : null;
+          if (url != null) {
+            return VideoResponse(videoUrl: url);
+          }
+          return VideoResponse(error: 'Magic Hour: vídeo completo mas sem URL');
+        }
+
+        if (status == 'error' || status == 'failed') {
+          final errorMsg = statusData['error'] ?? 'erro desconhecido na geração';
+          return VideoResponse(error: 'Magic Hour: falha na geração - $errorMsg');
+        }
+        // Senão (status 'pending'/'processing'), continua o polling.
+      }
+
+      return VideoResponse(error: 'Magic Hour: tempo limite de geração excedido (2min)');
+    } catch (e) {
+      return VideoResponse(error: 'Magic Hour: exceção - $e');
     }
   }
 
