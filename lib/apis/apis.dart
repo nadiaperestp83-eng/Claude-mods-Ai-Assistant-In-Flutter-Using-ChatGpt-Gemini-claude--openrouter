@@ -601,6 +601,89 @@ _(Esta é uma resposta simulada. Atualize suas chaves em `lib/helper/global.dart
     }
   }
 
+  // ── DETECÇÃO: pedido de tradução no texto livre ─────
+  // Reconhece padrões como "traduza X para Y", "traduzir X para Y".
+  static final RegExp _translateRegex = RegExp(
+    r'^(?:por favor[,]?\s*)?(?:traduza|traduzir|traduz)\s+(.+?)\s+(?:para|pra)\s+([a-zçãõáéíóúâêô\s]+?)[\.\?!]?$',
+    caseSensitive: false,
+  );
+
+  static bool isTranslationRequest(String question) {
+    return _translateRegex.hasMatch(question.trim());
+  }
+
+  /// Extrai o texto a traduzir e o idioma de destino (em português,
+  /// ex: "guarani", "inglês", "japonês") do pedido em linguagem natural.
+  static ({String text, String targetLanguage})? parseTranslationRequest(String question) {
+    final match = _translateRegex.firstMatch(question.trim());
+    if (match == null) return null;
+    final text = match.group(1)?.trim() ?? '';
+    final lang = match.group(2)?.trim() ?? '';
+    if (text.isEmpty || lang.isEmpty) return null;
+    return (text: text, targetLanguage: lang);
+  }
+
+  // Mapa simples de nomes de idiomas em português → código ISO.
+  // Cobre os idiomas mais comuns; nomes não mapeados são repassados
+  // como estão (o googleTranslate aceita alguns nomes/códigos direto).
+  static const Map<String, String> _languageNameToCode = {
+    'inglês': 'en', 'ingles': 'en',
+    'espanhol': 'es', 'espanhola': 'es',
+    'francês': 'fr', 'frances': 'fr',
+    'alemão': 'de', 'alemao': 'de',
+    'italiano': 'it',
+    'japonês': 'ja', 'japones': 'ja',
+    'coreano': 'ko',
+    'chinês': 'zh-cn', 'chines': 'zh-cn',
+    'russo': 'ru',
+    'árabe': 'ar', 'arabe': 'ar',
+    'hindi': 'hi',
+    'guarani': 'gn',
+    'tupi': 'gn', // sem suporte real a tupi antigo; aproxima por guarani.
+    'português': 'pt', 'portugues': 'pt',
+  };
+
+  static String _resolveLanguageCode(String nameOrCode) {
+    final normalized = nameOrCode.trim().toLowerCase();
+    return _languageNameToCode[normalized] ?? normalized;
+  }
+
+  // ── TRADUÇÃO (Google Translate principal, SimplyTranslate fallback) ─
+  // Nenhuma das duas chama IA/LLM — não gasta tokens.
+  static Future<String> translate({
+    required String text,
+    required String targetLanguageNameOrCode,
+  }) async {
+    final toCode = _resolveLanguageCode(targetLanguageNameOrCode);
+
+    // 1) Google Translate (translator_plus) — principal.
+    final googleResult = await googleTranslate(from: 'auto', to: toCode, text: text);
+    if (googleResult != 'Algo deu errado!' && googleResult.trim().isNotEmpty) {
+      return googleResult;
+    }
+
+    // 2) SimplyTranslate — fallback, sem chave necessária.
+    try {
+      final res = await post(
+        Uri.parse('https://api.simplytranslate.ai/translate'),
+        headers: {'Content-Type': 'application/json; charset=utf-8'},
+        body: jsonEncode({'text': text, 'from': 'auto', 'to': toCode}),
+      ).timeout(_timeout);
+
+      if (res.statusCode == 200) {
+        final data = jsonDecode(utf8.decode(res.bodyBytes));
+        final result = data['result'];
+        if (result is String && result.isNotEmpty) {
+          return result;
+        }
+      }
+    } catch (_) {
+      // segue para a mensagem de erro abaixo.
+    }
+
+    return 'Não foi possível traduzir agora. Tente novamente em alguns instantes.';
+  }
+
   // ── DETECÇÃO: código ou texto longo → Grupo 2 direto ─
   static bool _isCodeOrLongText(String questionLower, String original) {
     final hasCodeKeyword = questionLower.contains('código') ||
