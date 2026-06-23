@@ -10,7 +10,7 @@ class ChatController extends GetxController {
   final scrollC = ScrollController();
 
   final list = <Message>[
-    Message(msg: 'Oi, posso ajudar?', msgType: MessageType.bot)
+    Message(msg: 'Hello, How can I help you?', msgType: MessageType.bot)
   ].obs;
 
   Future<void> askQuestion() async {
@@ -23,34 +23,28 @@ class ChatController extends GetxController {
     list.add(Message(msg: question, msgType: MessageType.user));
     textC.text = '';
 
-    if (APIs.isTranslationRequest(question)) {
-      await _askTranslation(question);
-    } else if (APIs.isVideoRequest(question)) {
+    if (APIs.isVideoRequest(question)) {
       await _askVideo(question);
-    } else {
-      await _askText(question);
-    }
-  }
-
-  Future<void> _askTranslation(String question) async {
-    list.add(Message(msg: '', msgType: MessageType.bot));
-    _scrollDown();
-
-    final parsed = APIs.parseTranslationRequest(question);
-    if (parsed == null) {
-      list.removeLast();
-      list.add(Message(
-        msg: 'Não entendi o pedido de tradução. Tente algo como "traduza bom dia para inglês".',
-        msgType: MessageType.bot,
-      ));
-      _scrollDown();
       return;
     }
 
+    final classified = await APIs.classifyTranslationIntent(question);
+    if (classified.isTranslation) {
+      await _askTranslation(classified.text, classified.targetLanguage);
+      return;
+    }
+
+    await _askText(question);
+  }
+
+  Future<void> _askTranslation(String text, String targetLanguage) async {
+    list.add(Message(msg: '', msgType: MessageType.bot));
+    _scrollDown();
+
     try {
       final translated = await APIs.translate(
-        text: parsed.text,
-        targetLanguageNameOrCode: parsed.targetLanguage,
+        text: text,
+        targetLanguageNameOrCode: targetLanguage,
       );
       list.removeLast();
       list.add(Message(
