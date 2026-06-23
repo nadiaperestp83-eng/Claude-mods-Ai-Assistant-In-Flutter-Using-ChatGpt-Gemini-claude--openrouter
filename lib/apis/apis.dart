@@ -602,20 +602,44 @@ _(Esta é uma resposta simulada. Atualize suas chaves em `lib/helper/global.dart
   }
 
   // ── DETECÇÃO: pedido de tradução no texto livre ─────
-  // Reconhece padrões como "traduza X para Y", "traduzir X para Y".
-  static final RegExp _translateRegex = RegExp(
-    r'^(?:por favor[,]?\s*)?(?:traduza|traduzir|traduz)\s+(.+?)\s+(?:para|pra)\s+([a-zçãõáéíóúâêô\s]+?)[\.\?!]?$',
-    caseSensitive: false,
-  );
+  // Reconhece vários jeitos de pedir tradução em português:
+  // "traduza X para Y", "como se diz X em Y", "o que é X em Y", etc.
+  static final List<RegExp> _translateRegexes = [
+    RegExp(
+      r'^(?:por favor[,]?\s*)?(?:traduza|traduzir|traduz)\s+(.+?)\s+(?:para|pra)\s+([a-zçãõáéíóúâêô\s]+?)[\.\?!]?$',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'^como\s+(?:se\s+)?(?:diz|fala|escreve)(?:[- ]se)?\s+(.+?)\s+em\s+([a-zçãõáéíóúâêô\s]+?)[\.\?!]?$',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'^o\s+que\s+(?:é|significa)\s+(.+?)\s+em\s+([a-zçãõáéíóúâêô\s]+?)[\.\?!]?$',
+      caseSensitive: false,
+    ),
+    RegExp(
+      r'^(.+?)\s+em\s+([a-zçãõáéíóúâêô\s]+?)\s+(?:como\s+(?:se\s+)?(?:diz|fala|escreve))[\.\?!]?$',
+      caseSensitive: false,
+    ),
+  ];
+
+  static RegExpMatch? _matchTranslation(String question) {
+    final q = question.trim();
+    for (final regex in _translateRegexes) {
+      final match = regex.firstMatch(q);
+      if (match != null) return match;
+    }
+    return null;
+  }
 
   static bool isTranslationRequest(String question) {
-    return _translateRegex.hasMatch(question.trim());
+    return _matchTranslation(question) != null;
   }
 
   /// Extrai o texto a traduzir e o idioma de destino (em português,
   /// ex: "guarani", "inglês", "japonês") do pedido em linguagem natural.
   static ({String text, String targetLanguage})? parseTranslationRequest(String question) {
-    final match = _translateRegex.firstMatch(question.trim());
+    final match = _matchTranslation(question);
     if (match == null) return null;
     final text = match.group(1)?.trim() ?? '';
     final lang = match.group(2)?.trim() ?? '';
