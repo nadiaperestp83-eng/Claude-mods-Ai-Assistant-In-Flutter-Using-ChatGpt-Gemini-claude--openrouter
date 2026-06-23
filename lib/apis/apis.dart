@@ -601,50 +601,60 @@ _(Esta é uma resposta simulada. Atualize suas chaves em `lib/helper/global.dart
     }
   }
 
-  // ── DETECÇÃO: pedido de tradução no texto livre ─────
-  // Reconhece vários jeitos de pedir tradução em português:
-  // "traduza X para Y", "como se diz X em Y", "o que é X em Y", etc.
-  static final List<RegExp> _translateRegexes = [
-    RegExp(
-      r'^(?:por favor[,]?\s*)?(?:traduza|traduzir|traduz)\s+(.+?)\s+(?:para|pra)\s+([a-zçãõáéíóúâêô\s]+?)[\.\?!]?$',
-      caseSensitive: false,
-    ),
-    RegExp(
-      r'^como\s+(?:se\s+)?(?:diz|fala|escreve)(?:[- ]se)?\s+(.+?)\s+em\s+([a-zçãõáéíóúâêô\s]+?)[\.\?!]?$',
-      caseSensitive: false,
-    ),
-    RegExp(
-      r'^o\s+que\s+(?:é|significa)\s+(.+?)\s+em\s+([a-zçãõáéíóúâêô\s]+?)[\.\?!]?$',
-      caseSensitive: false,
-    ),
-    RegExp(
-      r'^(.+?)\s+em\s+([a-zçãõáéíóúâêô\s]+?)\s+(?:como\s+(?:se\s+)?(?:diz|fala|escreve))[\.\?!]?$',
-      caseSensitive: false,
-    ),
-  ];
+  // ── DETECÇÃO: pedido de tradução via classificação por IA ─
+  // Usa o Cerebras (cota generosa, resposta rápida) para decidir se a
+  // mensagem é um pedido de tradução, e extrair texto + idioma de
+  // destino, independente de como a pessoa formular a frase.
+  static const String _translationClassifierPrompt = '''
+Você é um classificador. Analise a mensagem do usuário e responda APENAS com um JSON, sem texto antes ou depois, sem markdown, no formato exato:
+{"is_translation": true ou false, "text": "texto a traduzir", "target_language": "idioma de destino em português"}
 
-  static RegExpMatch? _matchTranslation(String question) {
-    final q = question.trim();
-    for (final regex in _translateRegexes) {
-      final match = regex.firstMatch(q);
-      if (match != null) return match;
+Se a mensagem NÃO for um pedido de tradução (não pedir para traduzir, dizer como se fala, ou perguntar o significado de algo em outro idioma), responda:
+{"is_translation": false, "text": "", "target_language": ""}
+
+Exemplos de pedidos de tradução: "traduza bom dia para inglês", "como se diz eu te amo em guarani", "o que significa hello em português", "good morning em espanhol como fala".
+''';
+
+  static Future<({bool isTranslation, String text, String targetLanguage})>
+      classifyTranslationIntent(String question) async {
+    try {
+      final res = await post(
+        Uri.parse('https://api.cerebras.ai/v1/chat/completions'),
+        headers: {
+          'Content-Type': 'application/json; charset=utf-8',
+          'Authorization': 'Bearer $cerebrasKey',
+        },
+        body: jsonEncode({
+          'model': 'llama-3.1-8b',
+          'max_tokens': 200,
+          'messages': [
+            {'role': 'system', 'content': _translationClassifierPrompt},
+            {'role': 'user', 'content': question},
+          ],
+        }),
+      ).timeout(_timeout);
+
+      if (res.statusCode != 200) {
+        return (isTranslation: false, text: '', targetLanguage: '');
+      }
+
+      final data = jsonDecode(utf8.decode(res.bodyBytes));
+      final content = data['choices']?[0]?['message']?['content'] ?? '';
+      final cleaned = content
+          .toString()
+          .replaceAll('```json', '')
+          .replaceAll('```', '')
+          .trim();
+      final parsed = jsonDecode(cleaned);
+
+      return (
+        isTranslation: parsed['is_translation'] == true,
+        text: parsed['text']?.toString() ?? '',
+        targetLanguage: parsed['target_language']?.toString() ?? '',
+      );
+    } catch (_) {
+      return (isTranslation: false, text: '', targetLanguage: '');
     }
-    return null;
-  }
-
-  static bool isTranslationRequest(String question) {
-    return _matchTranslation(question) != null;
-  }
-
-  /// Extrai o texto a traduzir e o idioma de destino (em português,
-  /// ex: "guarani", "inglês", "japonês") do pedido em linguagem natural.
-  static ({String text, String targetLanguage})? parseTranslationRequest(String question) {
-    final match = _matchTranslation(question);
-    if (match == null) return null;
-    final text = match.group(1)?.trim() ?? '';
-    final lang = match.group(2)?.trim() ?? '';
-    if (text.isEmpty || lang.isEmpty) return null;
-    return (text: text, targetLanguage: lang);
   }
 
   // Mapa simples de nomes de idiomas em português → código ISO.
