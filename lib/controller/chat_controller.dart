@@ -23,6 +23,11 @@ class ChatController extends GetxController {
     list.add(Message(msg: question, msgType: MessageType.user));
     textC.text = '';
 
+    if (APIs.isImageRequest(question)) {
+      await _askImage(question);
+      return;
+    }
+
     if (APIs.isVideoRequest(question)) {
       await _askVideo(question);
       return;
@@ -112,6 +117,39 @@ class ChatController extends GetxController {
       list.removeLast();
       list.add(Message(
         msg: 'Exceção ao gerar vídeo: $e',
+        msgType: MessageType.bot,
+      ));
+    }
+
+    _scrollDown();
+  }
+
+  Future<void> _askImage(String question) async {
+    // Mensagem vazia com imageBase64 = '' marca o estado "gerando imagem"
+    // para o MessageCard mostrar o anel pulsando.
+    list.add(Message(msg: '', msgType: MessageType.bot, imageBase64: ''));
+    _scrollDown();
+
+    try {
+      final result = await APIs.generateImage(question);
+      list.removeLast();
+      if (result.isNotEmpty && !result.startsWith('❌')) {
+        list.add(Message(
+          msg: '',
+          msgType: MessageType.bot,
+          imageBase64: result,
+          aiProvider: 'Cloudflare',
+        ));
+      } else {
+        list.add(Message(
+          msg: result.isNotEmpty ? result : 'Não foi possível gerar a imagem.',
+          msgType: MessageType.bot,
+        ));
+      }
+    } catch (e) {
+      list.removeLast();
+      list.add(Message(
+        msg: 'Exceção ao gerar imagem: $e',
         msgType: MessageType.bot,
       ));
     }
