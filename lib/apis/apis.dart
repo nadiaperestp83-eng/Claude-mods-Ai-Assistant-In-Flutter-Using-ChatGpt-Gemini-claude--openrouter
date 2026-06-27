@@ -490,7 +490,7 @@ _(Esta é uma resposta simulada. Atualize suas chaves em `lib/helper/global.dart
     if (cloudflareKey.isEmpty) {
       return '❌ Cloudflare: chave não configurada.';
     }
-    const String accountId = '344ae813a0f97087c8b9d03eeb5dbfb5';
+    const String accountId = 'afaa966e887e1dfb2a28119624b323f0';
     try {
       final res = await post(
         Uri.parse(
